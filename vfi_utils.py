@@ -97,7 +97,12 @@ def load_file_from_github_release(model_type, ckpt_name):
     error_strs = []
     for i, base_model_download_url in enumerate(BASE_MODEL_DOWNLOAD_URLS):
         try:
-            return load_file_from_url(base_model_download_url + ckpt_name, get_ckpt_container_path(model_type))
+            if os.path.exists("/stable-diffusion-cache/models/frame_interpolation"):
+                model_dir = "/stable-diffusion-cache/models/frame_interpolation"
+            else:
+                import folder_paths
+                model_dir = os.path.join(folder_paths.models_dir, "frame_interpolation")
+            return load_file_from_url(base_model_download_url + ckpt_name, get_ckpt_container_path(model_type), model_dir=model_dir)
         except Exception:
             traceback_str = traceback.format_exc()
             if i < len(BASE_MODEL_DOWNLOAD_URLS) - 1:
@@ -109,7 +114,12 @@ def load_file_from_github_release(model_type, ckpt_name):
                 
 
 def load_file_from_direct_url(model_type, url):
-    return load_file_from_url(url, get_ckpt_container_path(model_type))
+    if os.path.exists("/stable-diffusion-cache/models/frame_interpolation"):
+        model_dir = "/stable-diffusion-cache/models/frame_interpolation"
+    else:
+        import folder_paths
+        model_dir = os.path.join(folder_paths.models_dir, "frame_interpolation")
+    return load_file_from_url(url, get_ckpt_container_path(model_type), model_dir=model_dir)
 
 def preprocess_frames(frames):
     return einops.rearrange(frames[..., :3], "n h w c -> n c h w")
