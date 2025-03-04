@@ -62,7 +62,7 @@ class MakeInterpolationStateList:
 def get_ckpt_container_path(model_type):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), config["ckpts_path"], model_type))
 
-def load_file_from_url(url, model_dir=None, progress=True, file_name=None):
+def load_file_from_url(url, tmp=None, model_dir=None, progress=True, file_name=None):
     """Load file form http url, will download models if necessary.
 
     Ref:https://github.com/1adrianb/face-alignment/blob/master/face_alignment/utils.py
