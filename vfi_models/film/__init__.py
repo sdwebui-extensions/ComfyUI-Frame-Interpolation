@@ -77,6 +77,8 @@ class FILM_VFI:
         dtype = torch.float32
 
         frames = preprocess_frames(frames)
+        frames[0] = frames[0].to(DEVICE, non_blocking=True).to(dtype, non_blocking=True)
+        frames[1] = frames[1].to(DEVICE, non_blocking=True).to(dtype, non_blocking=True)
         number_of_frames_processed_since_last_cleared_cuda_cache = 0
         output_frames = []
         
@@ -85,14 +87,16 @@ class FILM_VFI:
         else:
             multipliers = list(map(int, multiplier))
             multipliers += [2] * (len(frames) - len(multipliers) - 1)
-        for frame_itr in range(len(frames) - 1): # Skip the final frame since there are no frames after it
+        frame_itr = 0
+        while len(frames)>1:
+            frame_0 = frames.pop(0)
+            frame_1 = frames[0]
+            if len(frames)>1:
+                frames[1] = frames[1].to(DEVICE, non_blocking=True).to(dtype, non_blocking=True)
             if interpolation_states is not None and interpolation_states.is_frame_skipped(frame_itr):
                 continue
-            #Ensure that input frames are in fp32 - the same dtype as model
-            frame_0 = frames[frame_itr:frame_itr+1].to(DEVICE).float()
-            frame_1 = frames[frame_itr+1:frame_itr+2].to(DEVICE).float()
             relust = inference(model, frame_0, frame_1, multipliers[frame_itr] - 1)
-            output_frames.extend([frame.detach().cpu().to(dtype=dtype) for frame in relust[:-1]])
+            output_frames.extend([frame.to('cpu', non_blocking=True).to(dtype=dtype, non_blocking=True) for frame in relust[:-1]])
 
             number_of_frames_processed_since_last_cleared_cuda_cache += 1
             # Try to avoid a memory overflow by clearing cuda cache regularly
@@ -102,9 +106,27 @@ class FILM_VFI:
                 number_of_frames_processed_since_last_cleared_cuda_cache = 0
                 print("Done cache clearing")
             gc.collect()
+            frame_itr += 1
+
+        # for frame_itr in range(len(frames) - 1): # Skip the final frame since there are no frames after it
+        #     if interpolation_states is not None and interpolation_states.is_frame_skipped(frame_itr):
+        #         continue
+        #     #Ensure that input frames are in fp32 - the same dtype as model
+        #     frame_0 = frames[frame_itr:frame_itr+1].to(DEVICE).float()
+        #     frame_1 = frames[frame_itr+1:frame_itr+2].to(DEVICE).float()
+        #     relust = inference(model, frame_0, frame_1, multipliers[frame_itr] - 1)
+        #     output_frames.extend([frame.detach().cpu().to(dtype=dtype) for frame in relust[:-1]])
+
+        #     number_of_frames_processed_since_last_cleared_cuda_cache += 1
+        #     # Try to avoid a memory overflow by clearing cuda cache regularly
+        #     if number_of_frames_processed_since_last_cleared_cuda_cache >= clear_cache_after_n_frames:
+        #         print("Comfy-VFI: Clearing cache...", end = ' ')
+        #         soft_empty_cache()
+        #         number_of_frames_processed_since_last_cleared_cuda_cache = 0
+        #         print("Done cache clearing")
+        #     gc.collect()
         
-        output_frames.append(frames[-1:].to(dtype=dtype)) # Append final frame
-        output_frames = [frame.cpu() for frame in output_frames] #Ensure all frames are in cpu
+        output_frames.append(frames[-1:].to(dtype=dtype).to('cpu')) # Append final frame
         out = torch.cat(output_frames, dim=0)
         # clear cache for courtesy
         print("Comfy-VFI: Final clearing cache...", end = ' ')
